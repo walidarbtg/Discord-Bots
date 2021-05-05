@@ -46,9 +46,13 @@ def send_signed_request(url, key, secret, subaccount_name):
     return resp.json()
 
 
-def get_ftx_borrow_rate(coin):
+def get_lending_rate(coin):
     resp = get('https://ftx.com/api/spot_margin/history')
     if resp.status_code == 200:
         for rate in resp.json()['result']:
             if rate['coin'] == coin:
                 return rate['rate']
+
+
+def get_price(market):
+    return get('https://ftx.com/api/markets/{}'.format(market)).json()
