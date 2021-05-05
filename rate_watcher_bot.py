@@ -1,4 +1,4 @@
-import requests
+import ftx_api
 import discord
 import os
 import json
@@ -16,7 +16,6 @@ client = discord.Client()
 @client.event
 async def on_ready():
     await client.wait_until_ready()
-    await client.user.edit(username='Rate Watcher')
     print('We have logged in as {0.user}'.format(client))
     guild = client.get_guild(client.guilds[0].id)
     update_ticker.start(guild)
@@ -34,18 +33,10 @@ async def on_message(message):
 
 @tasks.loop(seconds=30)
 async def update_ticker(guild):
-    rate = get_ftx_borrow_rate('USD')
+    rate = ftx_api.get_ftx_borrow_rate('USD')
     annualized = rate * 24 * 365 * 100
     text = 'USD {:.2f}%'.format(annualized)
     await guild.me.edit(nick=text)
-
-
-def get_ftx_borrow_rate(coin):
-    resp = requests.get('https://ftx.com/api/spot_margin/history')
-    if resp.status_code == 200:
-        for rate in resp.json()['result']:
-            if rate['coin'] == coin:
-                return rate['rate']
 
 
 client.run(config['borrow_rates_bot']['token'])

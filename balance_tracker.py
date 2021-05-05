@@ -1,10 +1,9 @@
+import ftx_api
 import discord
 import json
-import time
-import hmac
 import os
-from datetime import datetime
-from requests import Request, Session, get
+from discord.ext import tasks, commands
+
 
 # Import config file
 config = {}
@@ -13,36 +12,49 @@ with open(config_path, 'r') as f:
     config = json.load(f)
 
 
-def get_account_info(key, secret, subaccount_name=""):
-    url = 'https://ftx.com/api/account'
-    resp = send_signed_request(url, key, secret, subaccount_name).json()
-    if resp['success']:
-        return resp.json()['result']
-    else:
-        raise Exception(resp['error'])
-    
+def set_ftx_account_key(name, key, secret):
+    global config
+    if len(config.keys()) == 0:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
 
-def send_signed_request(url, key, secret, subaccount_name):
-    ts = int(time.time() * 1000)
-    request = Request('GET', url)
-    prepared = request.prepare()
-    signature_payload = f'{ts}{prepared.method}{prepared.path_url}'.encode()
-    signature = hmac.new(secret.encode(), signature_payload, 'sha256').hexdigest()
+    config['ftx_accounts'][name] = {
+        "key": key,
+        "secret": secret
+    }
 
-    request.headers['FTX-KEY'] = key
-    request.headers['FTX-SIGN'] = signature
-    request.headers['FTX-TS'] = str(ts)
-    if subaccount_name:
-        request.headers['FTX-SUBACCOUNT'] = subaccount_name
+    with open(config_path, 'w') as f:
+        json.dump(config, f)
 
-    session = Session()
-    resp = session.send(prepared)
-    return resp
 
-try:
-    test = get_account_info(config['test_account']['key'], 
-                            config['test_account']['secret'], 
-                            config['test_account']['subaccount_name'])
-    print(test)
-except Exception as e:
-    print('An error occured: {}'.format(e))
+client = discord.Client()
+
+@client.event
+async def on_ready():
+    await client.wait_until_ready()
+    print('We have logged in as {0.user}'.format(client))
+    guild = client.get_guild(client.guilds[0].id)
+    update_balance.start(guild)
+
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    if message.content.startswith('$hello'):
+        await message.channel.send('Hello!')
+
+
+@tasks.loop(seconds=5)
+async def update_balance(guild):
+    account_value = ftx_api.get_account_usd_value(config['ftx_accounts']['walid']['key'],
+                                                  config['ftx_accounts']['walid']['secret'],
+                                                  config['ftx_accounts']['walid']['subaccount_name'])
+    text = '${:,.2f}'.format(account_value)
+    await guild.me.edit(nick=text)
+    activity = discord.Activity(name=config['ftx_accounts']['walid']['subaccount_name'], type=discord.ActivityType.watching)
+    await client.change_presence(status=discord.Status.online, activity=activity)
+
+
+client.run(config['balance_tracker_bot']['token'])
