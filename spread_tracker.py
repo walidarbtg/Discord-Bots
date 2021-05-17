@@ -43,18 +43,16 @@ async def get_spread(ctx, arg):
             coin_price = 0
             futures_price = 0
 
-            price_resp = ftx_api.get_price(coin + '/usd')
-            if price_resp['success']:
-                coin_price = price_resp['result']['last']
-            else:
-                await ctx.channel.send(price_resp['error'])
+            try:
+                coin_price = ftx_api.get_price(coin + '/usd')
+            except Exception as e:
+                await ctx.channel.send(e)
                 return
 
-            futures_resp = ftx_api.get_price(market)
-            if futures_resp['success']:
-                futures_price = futures_resp['result']['last']
-            else:
-                await ctx.channel.send(futures_resp['error'])
+            try:
+                futures_price = ftx_api.get_price(market)
+            except Exception as e:
+                await ctx.channel.send(e)
                 return
 
             spread = (futures_price-coin_price)/coin_price * 100

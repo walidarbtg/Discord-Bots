@@ -29,6 +29,15 @@ def get_account_usd_value(key, secret, subaccount_name=""):
     return total_usd_value
 
 
+def get_fills_history(key, secret, subaccount_name, market):
+    url = 'https://ftx.com/api/fills?market={}&limit=1000'.format(market)
+    resp = send_signed_request(url, key, secret, subaccount_name)
+    if resp['success']:
+        return resp['result']
+    else:
+        raise Exception(resp['error'])
+
+
 def send_signed_request(url, key, secret, subaccount_name):
     ts = int(time.time() * 1000)
     request = Request('GET', url)
@@ -55,4 +64,18 @@ def get_lending_rate(coin):
 
 
 def get_price(market):
-    return get('https://ftx.com/api/markets/{}'.format(market)).json()
+    resp = get('https://ftx.com/api/markets/{}'.format(market)).json()
+    if resp['success']:
+        return resp['result']['last']
+    else:
+        raise Exception(resp['error'])
+
+
+def get_positions(key, secret, subaccont_name):
+    url = 'https://ftx.com/api/positions?showAvgPrice=true'
+    resp = send_signed_request(url, key, secret, subaccont_name)
+    if resp['success']:
+        return resp['result']
+    else:
+        raise Exception(resp['error'])
+
