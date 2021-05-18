@@ -61,6 +61,8 @@ def get_lending_rate(coin):
         for rate in resp.json()['result']:
             if rate['coin'] == coin:
                 return rate['rate']
+    else:
+        raise Exception(resp.reason)
 
 
 def get_price(market):
@@ -78,4 +80,13 @@ def get_positions(key, secret, subaccont_name):
         return resp['result']
     else:
         raise Exception(resp['error'])
+
+
+def get_orderbook(market):
+    url = 'https://ftx.com/api/markets/{}/orderbook?depth=100'.format(market)
+    resp = get(url)
+    if resp.status_code == 200:
+        return resp.json()['result']
+    else:
+        raise Exception(resp.reason)
 

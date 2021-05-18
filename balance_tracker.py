@@ -57,4 +57,4 @@ async def update_balance(guild):
     await client.change_presence(status=discord.Status.online, activity=activity)
 
 
-client.run(config['balance_tracker_bot']['token'])
+client.run(config['bot_tokens']['balance_tracker_bot'])

@@ -50,5 +50,5 @@ def get_borrow_rate():
     return borrow_rate
 
 
-client.run(config['borrow_rates_bot']['token'])
+client.run(config['bot_tokens']['borrow_rates_bot'])
 

@@ -64,4 +64,50 @@ async def get_spread(ctx, arg):
             await ctx.channel.send('Annualized is {:.2f}%'.format(annualized))
 
 
-bot.run(config['spreads_bot']['token'])
+def get_slippage(market, side, order_size_usd):
+    last_price = ftx_api.get_price(market)
+    orderbook = ftx_api.get_orderbook(market)
+    average_price = 0
+    remaining_size = order_size_usd
+
+    if side == 'buy':
+        for ask in orderbook['asks']:
+            price = ask[0]
+            size = ask[1]
+            if remaining_size > (price * size):
+                average_price += price * size / order_size_usd * price
+                remaining_size -= price * size
+            else:
+                size = remaining_size / price
+                average_price += price * size / order_size_usd * price
+                break
+    elif side == 'sell':
+        for bid in orderbook['bids']:
+            price = bid[0]
+            size = bid[1]
+            if remaining_size > (price * size):
+                average_price += price * size / order_size_usd * price
+                remaining_size -= price * size
+            else:
+                size = remaining_size / price
+                average_price += price * size / order_size_usd * price
+                break
+
+    slippage = (last_price / average_price - 1) * 100
+    return abs(slippage)
+
+
+@bot.command(name='slippage')
+async def get_trade_slippage(ctx, market, side='', size=''):
+    await ctx.me.edit(nick='Helper')
+    if ctx.channel.id == config['channel_ids']['commands']:
+        if market == 'help':
+            help_msg = 'Usage:\n `!slippage market side size` \n Example:\n`!slippage uni-0625 buy 25000`'
+            await ctx.channel.send(help_msg)
+        else:
+            slippage = get_slippage(market, side, float(size))
+            msg = '`Slippage = {:.2f}%`'.format(slippage)
+            await ctx.channel.send(msg)
+
+
+bot.run(config['bot_tokens']['spreads_bot'])

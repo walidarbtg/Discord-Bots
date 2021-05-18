@@ -103,6 +103,7 @@ def get_current_position(spot_market, future_market, entry_time):
     spot_pnl = (current_spot_price - entry_spot_price) * spot_position['total']
 
     # Total pnl
+    # TODO: the PNL doesnt seem to match the usd wallet balance on the website, investigate
     pnl = spot_pnl + futures_pnl
 
     # Position details
@@ -119,12 +120,21 @@ def get_current_position(spot_market, future_market, entry_time):
     return position
 
 
-# TEST
-set_ftx_account('Walid', config['ftx_accounts']['main']['key'], config['ftx_accounts']['main']['secret'])
-pos = get_current_position('UNI/USD', 'UNI-0625', '2021-05-10T00:00:00')
-print(pos)
+@bot.command(name='position')
+async def get_position(ctx, futures_market, date=''):
+    if ctx.channel.id == config['channel_ids']['ftx-arb-personal']:
+        if futures_market == 'help':
+            help_msg = 'Usage:\n `!position future-market entry_date` \n Example:\n`!position uni-0625 2021-05-13`'
+            await ctx.channel.send(help_msg)
+        else:
+            coin = futures_market.split('-')[0]
+            date = date + 'T00:00:00'
+            position = get_current_position(coin + '/USD', futures_market, date)
+            msg = '```{}```'.format(position)
+            await ctx.channel.send(msg)
 
 
+bot.run(config['bot_tokens']['ftx_arb_personal'])
 
 
 
