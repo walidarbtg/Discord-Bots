@@ -108,14 +108,12 @@ def get_current_position(spot_market, future_market, entry_time):
 
     # Position details
     position = {
-        'average_spot_entry': entry_spot_price,
-        'average_futures_entry': entry_futures_price,
-        'entry_premium': (entry_futures_price / entry_spot_price - 1) * 100,
-        'current_premium': (current_future_price / current_spot_price - 1) * 100,
-        'unrealized_profit': ((entry_futures_price / entry_spot_price - 1) - (current_future_price / current_spot_price - 1)) * 100,
-        'realized_profit': pnl / (entry_futures_price * future_position['size'] + entry_spot_price * spot_position['total']) * 100,
-        'pnl': pnl,
-        'fees_paid': spot_entry['total_fees'] + future_entry['total_fees']
+        'average_spot_entry': '{:.2f}'.format(entry_spot_price),
+        'average_futures_entry': '{:.2f}'.format(entry_futures_price),
+        'entry_premium': '{:.2f}%'.format((entry_futures_price / entry_spot_price - 1) * 100),
+        'current_premium': '{:.2f}%'.format((current_future_price / current_spot_price - 1) * 100),
+        'pnl': '{:.2f}'.format(pnl),
+        'fees_paid': '{:.2f}'.format(spot_entry['total_fees'] + future_entry['total_fees'])
     }
     return position
 
@@ -133,6 +131,8 @@ async def get_position(ctx, futures_market, date=''):
             msg = '```{}```'.format(position)
             await ctx.channel.send(msg)
 
+
+set_ftx_account('Walid', config['ftx_accounts']['main']['key'], config['ftx_accounts']['main']['secret'])
 
 bot.run(config['bot_tokens']['ftx_arb_personal'])
 

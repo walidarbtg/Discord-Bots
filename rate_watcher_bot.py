@@ -41,9 +41,9 @@ async def update_ticker(guild):
 
 def get_borrow_rate():
     lending_rate = ftx_api.get_lending_rate('USD')
-    account_info = ftx_api.get_account_info(config['ftx_accounts']['walid']['key'],
-                                            config['ftx_accounts']['walid']['secret'],
-                                            config['ftx_accounts']['walid']['subaccount_name'])
+    account_info = ftx_api.get_account_info(config['ftx_accounts']['main']['key'],
+                                            config['ftx_accounts']['main']['secret'],
+                                            'Walid')
     taker_fee = account_info['takerFee']
     spot_margin_borrow_rate = min(500*taker_fee, 1)
     borrow_rate = lending_rate * (1+spot_margin_borrow_rate)
