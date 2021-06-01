@@ -46,7 +46,7 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    if message.content[0] == '!':
+    if message.content[0] == '!' or message.content[0] == '#' or message.content[0] == '.':
         return
 
     if message.channel.id == config['channel_ids']['ftx-arb-personal']:

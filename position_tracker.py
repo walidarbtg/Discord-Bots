@@ -20,7 +20,7 @@ with open(config_path, 'r') as f:
 
 
 # Discord Bot
-bot = commands.Bot(command_prefix='!')
+bot = commands.Bot(command_prefix='#')
 
 
 def set_ftx_account(name, key, secret):
