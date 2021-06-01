@@ -15,9 +15,20 @@ with open(config_path, 'r') as f:
 bot = commands.Bot(command_prefix='.')
 
 
+@bot.command(name='balance')
+async def get_account_balance(ctx, arg=''):
+    if ctx.channel.id == config['channel_ids']['quant_fund']:
+        try:
+            balance = ftx_api.get_account_usd_value(config['ftx_accounts']['main']['key'],
+                                                    config['ftx_accounts']['main']['secret'],
+                                                    'Quantfund')
+            await ctx.channel.send('```Account Value = ${:,.2f}```'.format(balance))
+        except Exception as e:
+            await ctx.channel.send(e)
+
+
 @bot.command(name='funding')
 async def get_funding_returns(ctx, start_time='', end_time='', market=''):
-    global config
     if ctx.channel.id == config['channel_ids']['quant_fund']:
         if start_time == 'help':
             help_msg = 'Usage example:\n `.funding start_time=2021-05-31 end_time=2021-06-01 market=BTC-PERP`'
