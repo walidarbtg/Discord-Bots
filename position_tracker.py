@@ -73,6 +73,20 @@ def get_futures_position_entry(market, entry_time):
     return get_position_entry(market, entry_ts)
 
 
+def calculate_days_to_expiry(month, day):
+    today = datetime.today()
+
+    if int(month) < today.month:
+        year = today.year + 1
+    else:
+        year = today.year
+
+    expiry = datetime(year, int(month), int(day))
+    dtt = expiry - today
+
+    return dtt.days
+
+
 def get_current_position(spot_market, future_market, entry_time):
     # Entry
     spot_entry = get_spot_position_entry(spot_market, entry_time)
@@ -106,14 +120,34 @@ def get_current_position(spot_market, future_market, entry_time):
     # TODO: the PNL doesnt seem to match the usd wallet balance on the website, investigate
     pnl = spot_pnl + futures_pnl
 
+    # Total size
+    total_size = current_future_price * future_position['size'] + current_spot_price * spot_position['total']
+
+    # Premium
+    entry_premium = (entry_futures_price / entry_spot_price - 1) * 100
+    current_premium = (current_future_price / current_spot_price - 1) * 100
+
+    expiry = future_market.split('-')[1]
+    days_to_expiry = calculate_days_to_expiry(expiry[:2], expiry[2:])
+
+    entry_date = datetime.strptime(entry_time, '%Y-%m-%dT%H:%M:%S')
+    today = datetime.now()
+    entry_to_now = (today - entry_date).days
+
+    entry_premium_annualized = entry_premium / (days_to_expiry + entry_to_now) * 365
+    current_premium_annualized = current_premium / days_to_expiry * 365
+
     # Position details
     position = {
-        'average_spot_entry': '{:.2f}'.format(entry_spot_price),
-        'average_futures_entry': '{:.2f}'.format(entry_futures_price),
-        'entry_premium': '{:.2f}%'.format((entry_futures_price / entry_spot_price - 1) * 100),
-        'current_premium': '{:.2f}%'.format((current_future_price / current_spot_price - 1) * 100),
-        'pnl': '{:.2f}'.format(pnl),
-        'fees_paid': '{:.2f}'.format(spot_entry['total_fees'] + future_entry['total_fees'])
+        'average_spot_entry': '${:,.2f}'.format(entry_spot_price),
+        'average_futures_entry': '${:,.2f}'.format(entry_futures_price),
+        'total_size': '${:,.2f}'.format(total_size),
+        'entry_premium': '{:.2f}%'.format(entry_premium),
+        'entry_premium_annualized': '{:.2f}%'.format(entry_premium_annualized),
+        'current_premium': '{:.2f}%'.format(current_premium),
+        'current_premium_annualized': '{:.2f}%'.format(current_premium_annualized),
+        'pnl': '${:,.2f}'.format(pnl),
+        'fees_paid': '${:.2f}'.format(spot_entry['total_fees'] + future_entry['total_fees'])
     }
     return position
 
@@ -128,7 +162,19 @@ async def get_position(ctx, futures_market, date=''):
             coin = futures_market.split('-')[0]
             date = date + 'T00:00:00'
             position = get_current_position(coin + '/USD', futures_market, date)
-            msg = '```{}```'.format(position)
+            msg = '```Average Spot Entry: {}\n' \
+                  'Average Futures Entry: {}\n' \
+                  'Total Position Size: {}\n' \
+                  'Premium at entry: {}\n' \
+                  'Annualized premium at entry: {}\n' \
+                  'Current premium: {}\n' \
+                  'Current annualized premium: {}\n' \
+                  'PNL: {}\n' \
+                  'Fees paid: {}```\n'.format(position['average_spot_entry'], position['average_futures_entry'],
+                                              position['total_size'], position['entry_premium'],
+                                              position['entry_premium_annualized'], position['current_premium'],
+                                              position['current_premium_annualized'], position['pnl'],
+                                              position['fees_paid'])
             await ctx.channel.send(msg)
 
 

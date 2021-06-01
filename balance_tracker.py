@@ -34,7 +34,7 @@ async def on_ready():
     await client.wait_until_ready()
     print('We have logged in as {0.user}'.format(client))
     guild = client.get_guild(client.guilds[0].id)
-    check_credentials.start(guild)
+    update_balance.start(guild)
 
 
 @client.event
@@ -73,13 +73,15 @@ async def update_balance(guild):
     activity = discord.Activity(name=ACCOUNT['name'], type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=activity)
 
-
+"""
 @tasks.loop(seconds=5)
 async def check_credentials(guild):
     if ACCOUNT['key'] == "" or ACCOUNT['secret'] == "" or ACCOUNT['name'] == "":
         pass
     else:
         update_balance.start(guild)
+"""
 
+set_ftx_account('Walid', config['ftx_accounts']['main']['key'], config['ftx_accounts']['main']['secret'])
 
 client.run(config['bot_tokens']['balance_tracker_bot'])
