@@ -90,3 +90,43 @@ def get_orderbook(market):
     else:
         raise Exception(resp.reason)
 
+
+def get_funding_payments(key, secret, subaccount_name, start_time='', end_time='', market=''):
+    url = 'https://ftx.com/api/funding_payments'
+    if start_time:
+        url += '?start_time={}'.format(start_time)
+    if end_time:
+        if '?' in url:
+            url += '&end_time={}'.format(end_time)
+        else:
+            url += '?end_time={}'.format(end_time)
+    if market:
+        if '?' in url:
+            url += '&future={}'.format(market)
+        else:
+            url += '?future={}'.format(market)
+
+    resp = send_signed_request(url, key, secret, subaccount_name)
+
+    if resp['success']:
+        return resp['result']
+    else:
+        raise Exception(resp['error'])
+
+
+def get_borrow_history(key, secret, subaccount_name, start_time='', end_time=''):
+    url = 'https://ftx.com/api/spot_margin/borrow_history'
+    if start_time:
+        url += '?start_time={}'.format(start_time)
+    if end_time:
+        if '?' in url:
+            url += '&end_time={}'.format(end_time)
+        else:
+            url += '?end_time={}'.format(end_time)
+
+    resp = send_signed_request(url, key, secret, subaccount_name)
+
+    if resp['success']:
+        return resp['result']
+    else:
+        raise Exception(resp['error'])
