@@ -130,3 +130,12 @@ def get_borrow_history(key, secret, subaccount_name, start_time='', end_time='')
         return resp['result']
     else:
         raise Exception(resp['error'])
+
+
+def get_historical_prices(market, resolution, start_time):
+    url = 'https://ftx.com/api/markets/{}/candles?resolution={}&start_time={}'.format(market, resolution, start_time)
+    resp = get(url)
+    if resp.status_code == 200:
+        return resp.json()['result']
+    else:
+        raise Exception(resp.reason)

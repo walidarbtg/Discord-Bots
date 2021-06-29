@@ -2,8 +2,11 @@ import ftx_api
 import json
 import os
 import discord
-from datetime import datetime
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
 from discord.ext import commands
+from sklearn.linear_model import LinearRegression
 
 
 # Import config file
@@ -99,7 +102,6 @@ def get_slippage(market, side, order_size_usd):
 
 @bot.command(name='slippage')
 async def get_trade_slippage(ctx, market, side='', size=''):
-    await ctx.me.edit(nick='Helper')
     if ctx.channel.id == config['channel_ids']['commands']:
         if market == 'help':
             help_msg = 'Usage:\n `!slippage market side size` \n Example:\n`!slippage uni-0625 buy 25000`'
@@ -109,5 +111,39 @@ async def get_trade_slippage(ctx, market, side='', size=''):
             msg = '`Slippage = {:.2f}%`'.format(slippage)
             await ctx.channel.send(msg)
 
+
+@bot.command(name='beta')
+async def get_beta(ctx, asset_market, benchmark_market="", period="", resolution=""):
+    if ctx.channel.id == config['channel_ids']['commands']:
+        if asset_market == 'help':
+            help_msg = 'Usage:\n `!beta asset_market benchmark_market period(in days) resolution(in sec)` \n Example:\n`!beta eth-perp btc-perp 30 60`'
+            await ctx.channel.send(help_msg)
+        else:
+            beta = calculate_beta(asset_market, benchmark_market, period, resolution)
+            msg = '`Beta = {:.3f}`'.format(beta)
+            await ctx.channel.send(msg)
+
+
+def calculate_beta(asset_market, benchmark_market, period, resolution):
+    # Calculate start_time
+    start_date = datetime.today() - timedelta(days=int(period))
+    start_time = int(start_date.timestamp())
+
+    # Get price history
+    asset_history = ftx_api.get_historical_prices(asset_market, resolution, start_time)
+    benchmark_history = ftx_api.get_historical_prices(benchmark_market, resolution, start_time)
+
+    # Calculate percentage change
+    asset_history_df = pd.DataFrame(asset_history)
+    benchmark_history_df = pd.DataFrame(benchmark_history)
+    asset_returns = asset_history_df['close'] / asset_history_df['close'].shift(1)
+    benchmark_returns = benchmark_history_df['close'] / benchmark_history_df['close'].shift(1)
+
+    # Calculate beta
+    x = np.array(asset_returns[1:]).reshape((-1, 1))
+    y = np.array(benchmark_returns[1:])
+    beta = LinearRegression().fit(x,y)
+
+    return beta.coef_[0]
 
 bot.run(config['bot_tokens']['spreads_bot'])
