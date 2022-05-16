@@ -1,13 +1,18 @@
-import ftx_api
 import json
 import os
 import discord
+import math
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from discord.ext import commands
-from sklearn.linear_model import LinearRegression
+from statsmodels.tsa.stattools import OLS, add_constant
+from exchange.ftx.client import FtxClient
+from sklearn.linear_model import Ridge
 
+# Initialization
+client = FtxClient()
+bot = commands.Bot(command_prefix='!')
 
 # Import config file
 config = {}
@@ -16,134 +21,42 @@ with open(config_path, 'r') as f:
     config = json.load(f)
 
 
-bot = commands.Bot(command_prefix='!')
-
-
-def calculate_days_to_expiry(month, day):
-    today = datetime.today()
-
-    if int(month) < today.month:
-        year = today.year + 1
-    else:
-        year = today.year
-
-    expiry = datetime(year, int(month), int(day))
-    dtt = expiry - today
-
-    return dtt.days
-
-
-@bot.command(name='spread')
-async def get_spread(ctx, arg):
-    if ctx.channel.id == config['channel_ids']['commands']:
-        if arg == 'help':
-            help_msg = 'Usage example:\n `!spread sushi-0625`'
-            await ctx.channel.send(help_msg)
-        else:
-            arg_list = arg.split('-')
-            coin = arg_list[0]
-            market = arg
-            coin_price = 0
-            futures_price = 0
-
-            try:
-                coin_price = ftx_api.get_price(coin + '/usd')
-            except Exception as e:
-                await ctx.channel.send(e)
-                return
-
-            try:
-                futures_price = ftx_api.get_price(market)
-            except Exception as e:
-                await ctx.channel.send(e)
-                return
-
-            spread = (futures_price-coin_price)/coin_price * 100
-            await ctx.channel.send('Premium is {:.2f}%'.format(spread))
-
-            expiry = arg_list[1]
-            days_to_expiry = calculate_days_to_expiry(expiry[:2], expiry[2:])
-            annualized = spread / days_to_expiry * 365
-            await ctx.channel.send('Annualized is {:.2f}%'.format(annualized))
-
-
-def get_slippage(market, side, order_size_usd):
-    last_price = ftx_api.get_price(market)
-    orderbook = ftx_api.get_orderbook(market)
-    average_price = 0
-    remaining_size = order_size_usd
-
-    if side == 'buy':
-        for ask in orderbook['asks']:
-            price = ask[0]
-            size = ask[1]
-            if remaining_size > (price * size):
-                average_price += price * size / order_size_usd * price
-                remaining_size -= price * size
-            else:
-                size = remaining_size / price
-                average_price += price * size / order_size_usd * price
-                break
-    elif side == 'sell':
-        for bid in orderbook['bids']:
-            price = bid[0]
-            size = bid[1]
-            if remaining_size > (price * size):
-                average_price += price * size / order_size_usd * price
-                remaining_size -= price * size
-            else:
-                size = remaining_size / price
-                average_price += price * size / order_size_usd * price
-                break
-
-    slippage = (last_price / average_price - 1) * 100
-    return abs(slippage)
-
-
-@bot.command(name='slippage')
-async def get_trade_slippage(ctx, market, side='', size=''):
-    if ctx.channel.id == config['channel_ids']['commands']:
-        if market == 'help':
-            help_msg = 'Usage:\n `!slippage market side size` \n Example:\n`!slippage uni-0625 buy 25000`'
-            await ctx.channel.send(help_msg)
-        else:
-            slippage = get_slippage(market, side, float(size))
-            msg = '`Slippage = {:.2f}%`'.format(slippage)
-            await ctx.channel.send(msg)
-
-
 @bot.command(name='beta')
-async def get_beta(ctx, asset_market, benchmark_market="", period="", resolution=""):
-    if ctx.channel.id == config['channel_ids']['commands']:
-        if asset_market == 'help':
-            help_msg = 'Usage:\n `!beta asset_market benchmark_market period(in days) resolution(in sec)` \n Example:\n`!beta eth-perp btc-perp 30 60`'
+async def get_beta(ctx, asset_a, asset_b="", period="", resolution_minutes=""):
+    period = int(period)
+    resolution_minutes = int(resolution_minutes)
+    if ctx.channel.id == config['channel_ids']['commands_test']:
+        if asset_a == 'help':
+            help_msg = 'Usage:\n `!beta asset_a asset_b period(in days) resolution(in min)` \n Example:\n`!beta eth-perp btc-perp 30 5`'
             await ctx.channel.send(help_msg)
         else:
-            beta = calculate_beta(asset_market, benchmark_market, period, resolution)
-            msg = '`Beta = {:.3f}`'.format(beta)
-            await ctx.channel.send(msg)
+            # Check if period and resolution match (we have a limit of 5000 datapoints)
+            max_period_allowed = int(5000 * resolution_minutes / 60 / 24)
+            if period > max_period_allowed:
+                msg = '`Maximum period allowed for this resolution is {} days`'.format(max_period_allowed)
+                await ctx.channel.send(msg)
+            else:
+                # Calculate start_time
+                start_date = datetime.today() - timedelta(days=period)
+                start_time_ts = int(start_date.timestamp())
+                end_time_ts = int(datetime.today().timestamp())
 
+                # Get price data
+                resolution_seconds = resolution_minutes * 60
+                data_a = pd.DataFrame(client.get_historical_data(asset_a, resolution_seconds, 5000, start_time_ts, end_time_ts))
+                data_b = pd.DataFrame(client.get_historical_data(asset_b, resolution_seconds, 5000, start_time_ts, end_time_ts))
+                data_a['startTime'] = data_a['startTime'].apply(lambda x: datetime.fromisoformat(x))
+                data_a['log_price'] = data_a['close'].apply(lambda x: math.log(x))
+                data_a['log_returns'] = data_a['log_price'].pct_change()
+                data_b['startTime'] = data_b['startTime'].apply(lambda x: datetime.fromisoformat(x))
+                data_b['log_price'] = data_b['close'].apply(lambda x: math.log(x))
+                data_b['log_returns'] = data_b['log_price'].pct_change()
 
-def calculate_beta(asset_market, benchmark_market, period, resolution):
-    # Calculate start_time
-    start_date = datetime.today() - timedelta(days=int(period))
-    start_time = int(start_date.timestamp())
+                # Calculate beta
+                reg = OLS(data_a['log_returns'][1:], add_constant(data_b['log_returns'][1:])).fit()
+                beta = reg.params[1]
 
-    # Get price history
-    asset_history = ftx_api.get_historical_prices(asset_market, resolution, start_time)
-    benchmark_history = ftx_api.get_historical_prices(benchmark_market, resolution, start_time)
+                msg = '`Beta = {:.3f}`'.format(beta)
+                await ctx.channel.send(msg)
 
-    # Calculate percentage change
-    asset_history_df = pd.DataFrame(asset_history)
-    benchmark_history_df = pd.DataFrame(benchmark_history)
-    asset_returns = asset_history_df['close'] / asset_history_df['close'].shift(1)
-    benchmark_returns = benchmark_history_df['close'] / benchmark_history_df['close'].shift(1)
-
-    # Calculate beta
-    x = np.array(asset_returns[1:]).reshape((-1, 1))
-    y = np.array(benchmark_returns[1:])
-    beta = LinearRegression().fit(x,y)
-
-    return beta.coef_[0]
-
-bot.run(config['bot_tokens']['spreads_bot'])
+bot.run(config['arb_helper_token'])
