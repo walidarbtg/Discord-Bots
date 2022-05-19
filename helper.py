@@ -1,17 +1,13 @@
-from inspect import trace
 import json
 import os
 import sys
 import traceback
-import discord
 import math
-import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from discord.ext import commands
 from statsmodels.tsa.stattools import OLS, add_constant
 from exchange.ftx.client import FtxClient
-from sklearn.linear_model import RidgeCV
 
 # Initialization
 client = FtxClient()
