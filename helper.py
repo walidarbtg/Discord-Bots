@@ -26,7 +26,7 @@ with open(config_path, 'r') as f:
 
 @bot.command(name='beta')
 async def get_beta(ctx, asset_a, asset_b="", period="", resolution_minutes=""):
-    if ctx.channel.id == config['channel_ids']['commands_test']:
+    if ctx.channel.id == config['channel_ids']['commands']:
         if asset_a == 'help':
             help_msg = 'Usage:\n You want to check the beta between eth and btc based on last 10 days of 5min data \n Example:\n`!beta eth-perp btc-perp 30days 5min`'
             help_msg += '\nMethodology: Uses OLS Linear Regression. Tries both permutations and returns the mean of beta. \n`beta_mean = (beta_1 + 1/beta_2) / 2`'
