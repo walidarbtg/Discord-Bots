@@ -3,6 +3,7 @@ import os
 import sys
 import traceback
 import math
+import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from discord.ext import commands
@@ -22,7 +23,7 @@ with open(config_path, 'r') as f:
 
 @bot.command(name='beta')
 async def get_beta(ctx, asset_a, asset_b="", period="", resolution_minutes=""):
-    if ctx.channel.id == config['channel_ids']['commands']:
+    if ctx.channel.id == config['channel_ids']['commands_test']:
         if asset_a == 'help':
             help_msg = 'Usage:\n You want to check the beta between eth and btc based on last 10 days of 5min data \n Example:\n`!beta eth-perp btc-perp 30days 5min`'
             help_msg += '\nMethodology: Uses OLS Linear Regression. Tries both permutations and returns the mean of beta. \n`beta_mean = (beta_1 + 1/beta_2) / 2`'
@@ -47,11 +48,15 @@ async def get_beta(ctx, asset_a, asset_b="", period="", resolution_minutes=""):
                     data_a = pd.DataFrame(client.get_historical_data(asset_a, resolution_seconds, 5000, start_time_ts, end_time_ts))
                     data_b = pd.DataFrame(client.get_historical_data(asset_b, resolution_seconds, 5000, start_time_ts, end_time_ts))
                     data_a['startTime'] = data_a['startTime'].apply(lambda x: datetime.fromisoformat(x))
-                    data_a_log_price = data_a['close'].apply(lambda x: math.log(x))
-                    data_a_log_returns = data_a_log_price.pct_change().dropna()
+                    data_a_returns = data_a['close'].pct_change().dropna()
+                    data_a_log_returns = (data_a_returns + 1).apply(lambda x: math.log(x))
                     data_b['startTime'] = data_b['startTime'].apply(lambda x: datetime.fromisoformat(x))
-                    data_b_log_price = data_b['close'].apply(lambda x: math.log(x))
-                    data_b_log_returns = data_b_log_price.pct_change().dropna()
+                    data_b_returns = data_b['close'].pct_change().dropna()
+                    data_b_log_returns = (data_b_returns + 1).apply(lambda x: math.log(x))
+
+                    # Calculate correlation
+                    corr = data_a_log_returns.corr(data_b_log_returns, method='pearson')
+                    msg = 'Correlation = `{:.2f}`\n'.format(corr)
 
                     # Calculate beta
                     model = OLS(data_a_log_returns, add_constant(data_b_log_returns))
@@ -64,9 +69,9 @@ async def get_beta(ctx, asset_a, asset_b="", period="", resolution_minutes=""):
                     beta = (beta_1 + 1/beta_2) / 2
 
                     if beta > 0:
-                        msg = '`Beta = {:.2f}` \n`For $100 of {}, you need ${:.2f} of {}`'.format(beta, asset_a, 100*beta, asset_b)
+                        msg += 'Beta = `{:.2f}` \nFor `$100` of `{}`, you need `${:.2f}` of `{}`'.format(beta, asset_a, 100*beta, asset_b)
                     else:
-                        msg = 'Beta is negative, meaning the correlation is probably negative. Not an ideal candidate for a pair trade'
+                        msg += 'Beta is negative, meaning the correlation is probably negative. Not an ideal candidate for a pair trade'
                     await ctx.channel.send(msg)
                 except Exception as e:
                     err = traceback.format_exception(*sys.exc_info())[-1]
