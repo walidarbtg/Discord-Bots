@@ -121,7 +121,7 @@ async def get_binance_funding_arb(ctx):
         top_arbs = rate_diffs_df.sort_values(['arb_profit'], ascending=False)
 
         top_arbs['arb_profit'] = top_arbs['arb_profit'].apply(lambda x: '{:.2f} %'.format(x))
-        top_arbs['max_borrow_in_dollars'] = top_arbs['max_borrow_in_dollars'].apply(lambda x: '$'.format(x))
+        top_arbs['max_borrow_in_dollars'] = top_arbs['max_borrow_in_dollars'].apply(lambda x: '${}'.format(x))
 
         await ctx.channel.send('``{}``'.format(str(top_arbs)))
         
